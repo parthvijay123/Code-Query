@@ -1,6 +1,5 @@
 import { getComments } from "@/models/server/comment.actions";
 import CommentForm from "./CommentForm";
-import { Models } from "appwrite";
 
 export default async function Comments({
     type,

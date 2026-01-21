@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useAuthStore } from "@/store/Auth";
+import { useSession } from "next-auth/react";
 import { createAnswer } from "@/models/server/answer.actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "next/navigation";
 
 export default function AnswerForm({ questionId }: { questionId: string }) {
-    const { user } = useAuthStore();
+    const { data: session } = useSession();
+    const user = session?.user;
     const [content, setContent] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -29,7 +30,7 @@ export default function AnswerForm({ questionId }: { questionId: string }) {
             const { success, error: apiError } = await createAnswer(
                 questionId,
                 content,
-                user.$id
+                user.id!
             );
 
             if (success) {

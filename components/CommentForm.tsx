@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuthStore } from "@/store/Auth";
+import { useSession } from "next-auth/react";
 import { createComment } from "@/models/server/comment.actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea"; // Or Input
@@ -14,7 +14,8 @@ export default function CommentForm({
     type: "question" | "answer",
     typeId: string
 }) {
-    const { user } = useAuthStore();
+    const { data: session } = useSession();
+    const user = session?.user;
     const [content, setContent] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -37,7 +38,7 @@ export default function CommentForm({
                 type,
                 typeId,
                 content,
-                user.$id
+                user.id!
             );
 
             if (success) {

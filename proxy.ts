@@ -1,29 +1,17 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 
-import getOrCreateDB from './models/server/dbSetup'
-import getOrCreateStorage from './models/server/storageSetup'
+import { auth } from "@/auth"
 
-// This function can be marked `async` if using `await` inside
-export async function proxy(request: NextRequest) {
+export default auth((req) => {
+    const isLoggedIn = !!req.auth
+    const isOnDashboard = req.nextUrl.pathname.startsWith("/questions/ask") // Example protected route
 
-    // await Promise.all([
-    //     getOrCreateDB(),
-    //     getOrCreateStorage()
-    // ])
-    return NextResponse.next()
-}
+    if (isOnDashboard) {
+        if (isLoggedIn) return
+        return Response.redirect(new URL("/login", req.nextUrl)) // Redirect unauthenticated users to login page
+    }
+    return
+})
 
-// See "Matching Paths" below to learn more
 export const config = {
-    /* match all request paths except for the the ones that starts with:
-    - api
-    - _next/static
-    - _next/image
-    - favicon.com
-  
-    */
-    matcher: [
-        "/((?!api|_next/static|_next/image|favicon.ico).*)",
-    ],
-} 
+    matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+}

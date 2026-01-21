@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuthStore } from "@/store/Auth";
+import { useSession } from "next-auth/react";
 import { createVote, getVotes } from "@/models/server/vote.actions";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -19,7 +19,8 @@ export default function VoteButtons({
     initialUpvotes?: number,
     initialDownvotes?: number
 }) {
-    const { user } = useAuthStore();
+    const { data: session } = useSession();
+    const user = session?.user;
     const router = useRouter();
     const [upvotes, setUpvotes] = useState(initialUpvotes);
     const [downvotes, setDownvotes] = useState(initialDownvotes);
@@ -34,9 +35,9 @@ export default function VoteButtons({
                 // Find if user voted
                 // This is inefficient if many votes, but for MVP it works. 
                 // Better: getVotes accepts userId to filter? Or use a separate "getUserVote" action.
-                const myVote = documents?.find((v: any) => v.votedById === user.$id);
+                const myVote = documents?.find((v: any) => v.votedById === user.id);
                 if (myVote) {
-                    setUserVote(myVote.voteStatus);
+                    setUserVote(myVote.voteStatus as "up" | "down");
                 }
 
                 const ups = documents?.filter((v: any) => v.voteStatus === "up").length || 0;
@@ -62,14 +63,14 @@ export default function VoteButtons({
         setLoading(true);
 
         try {
-            const { success, error } = await createVote(type, typeId, status, user.$id);
+            const { success, error } = await createVote(type, typeId, status, user.id!);
             if (success) {
                 // Optimistic update or refetch
                 // For simplicity, refetch or just toggle local state logic (complex).
                 // Let's refetch to be sure.
                 const { documents } = await getVotes(type, typeId);
-                const myVote = documents?.find((v: any) => v.votedById === user.$id);
-                setUserVote(myVote ? myVote.voteStatus : null);
+                const myVote = documents?.find((v: any) => v.votedById === user.id);
+                setUserVote(myVote ? (myVote.voteStatus as "up" | "down") : null);
                 setUpvotes(documents?.filter((v: any) => v.voteStatus === "up").length || 0);
                 setDownvotes(documents?.filter((v: any) => v.voteStatus === "down").length || 0);
                 router.refresh();

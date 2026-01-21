@@ -3,18 +3,15 @@ import { getAnswers } from "@/models/server/answer.actions";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { storage } from "@/models/client/config"; // Using client config for storage view? Or server?
-// Actually we need the URL. Appwrite storage view/download is usually a public URL or requires a session. 
-// If data is public, we can construct the URL.
 import AnswerForm from "@/components/AnswerForm";
 import VoteButtons from "@/components/VoteButtons";
-import { Models } from "appwrite";
 
 import Comments from "@/components/Comments";
 
-export default async function QuestionDetailPage({ params }: { params: { id: string } }) {
-    const { question, error } = await getQuestion(params.id);
-    const { documents: answers, error: answersError } = await getAnswers(params.id);
+export default async function QuestionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const { question, error } = await getQuestion(id);
+    const { documents: answers, error: answersError } = await getAnswers(id);
 
     if (error || !question) {
         return (
@@ -24,13 +21,11 @@ export default async function QuestionDetailPage({ params }: { params: { id: str
         );
     }
 
-    // Construct attachment URL if exists (simplified for now, ideally use a helper)
-    const attachmentUrl = question.attachmentId
-        ? `${process.env.NEXT_PUBLIC_APPWRITE_HOST_URL}/storage/buckets/${process.env.NEXT_PUBLIC_APPWRITE_BUCKET_ID}/files/${question.attachmentId}/view?project=${process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID}`
-        : null;
+    // Attachment logic disabled during migration
+    const attachmentUrl = null;
 
     return (
-        <div className="container mx-auto max-w-4xl py-10">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
             <div className="mb-8">
                 <h1 className="text-4xl font-bold mb-4">{question.title}</h1>
                 <div className="flex gap-2 text-sm text-muted-foreground mb-4">

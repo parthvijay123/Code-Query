@@ -1,16 +1,12 @@
-import { Client, Databases, Users, Avatars, Storage } from "node-appwrite";
-import { env } from "../name";
+import { PrismaClient } from "@prisma/client";
 
-const client = new Client();
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-client
-    .setEndpoint(env.appwrite.endpoint) // Your API Endpoint
-    .setProject(env.appwrite.projectId) // Your project ID
-    .setKey(env.appwrite.apikey); // Your secret API key
+export const prisma =
+    globalForPrisma.prisma ||
+    new PrismaClient({
+        log: ["query"],
+    });
 
-const databases = new Databases(client);
-const users = new Users(client);
-const avatars = new Avatars(client);
-const storage = new Storage(client);
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-export { client, databases, users, avatars, storage };

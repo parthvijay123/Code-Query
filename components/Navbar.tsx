@@ -2,34 +2,32 @@
 
 import React from "react";
 import Link from "next/link";
-import { useAuthStore } from "@/store/Auth";
+import { useSession, signOut } from "next-auth/react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Search } from "lucide-react";
-import { account } from "@/models/client/config";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {
-    const { user, logout, verifySession } = useAuthStore();
+    const { data: session } = useSession();
+    const user = session?.user;
     const router = useRouter();
 
-    React.useEffect(() => {
-        verifySession();
-    }, [verifySession]);
-
     const handleLogout = async () => {
-        await logout();
+        await signOut();
         router.push("/login");
     };
 
     return (
         <nav className="border-b bg-background sticky top-0 z-50">
             <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-                <Link href="/" className="text-2xl font-bold">
-                    Code <span className="text-primary">Query</span>
-                </Link>
+                <div className="flex items-center w-[200px]">
+                    <Link href="/" className="text-2xl font-bold">
+                        Code <span className="text-primary">Query</span>
+                    </Link>
+                </div>
 
                 <div className="flex-1 max-w-md mx-4 relative hidden md:block">
                     <form onSubmit={(e) => {
@@ -45,20 +43,20 @@ export default function Navbar() {
                     </form>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-end w-[200px] gap-4">
                     {/* Theme Toggle placeholder if needed, typically handled by separate component or integrated */}
 
                     {user ? (
                         <div className="flex items-center gap-4">
-                            <span className="text-sm font-medium hidden md:block">{user.name}</span>
+                            <span className="text-sm font-medium hidden md:block">{user.name || "User"}</span>
                             <Avatar>
-                                <AvatarImage src="" />
-                                <AvatarFallback>{user.name[0]}</AvatarFallback>
+                                <AvatarImage src={user.image || ""} />
+                                <AvatarFallback>{user.name ? user.name[0] : "U"}</AvatarFallback>
                             </Avatar>
                             <Button variant="ghost" size="sm" onClick={handleLogout}>Log out</Button>
                         </div>
                     ) : (
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                             <Link href="/login">
                                 <Button variant="ghost">Log in</Button>
                             </Link>

@@ -1,8 +1,7 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
-import { databases, storage } from "./config";
-import { db, questionCollection, questionAttachmentBucket } from "../name";
+import { prisma } from "./config";
+import { revalidatePath } from "next/cache";
 
 export async function createQuestion(
     title: string,
@@ -14,29 +13,32 @@ export async function createQuestion(
     try {
         let attachmentId = null;
 
+        // STORAGE MIGRATION PENDING: 
+        // Appwrite Storage is removed. For now, we skip attachment upload.
+        // TODO: Implement S3/Blob storage if needed.
         if (attachment) {
-            const response = await storage.createFile(
-                questionAttachmentBucket,
-                ID.unique(),
-                attachment
-            );
-            attachmentId = response.$id;
+            console.warn("Attachment upload disabled in migration.");
         }
 
-        const question = await databases.createDocument(
-            db,
-            questionCollection,
-            ID.unique(),
-            {
+        const question = await prisma.question.create({
+            data: {
                 title,
                 content,
                 authorId,
                 tags,
-                attachmentId,
+                attachmentId // storing null or previous logic
             }
-        );
-        // ...
+        });
 
+        // Map to Appwrite-like structure for frontend compatibility
+        const questionDoc = {
+            ...question,
+            $id: question.id,
+            $createdAt: question.createdAt.toISOString(),
+            $updatedAt: question.updatedAt.toISOString(),
+            $collectionId: "questions",
+            $databaseId: "main-stackflow"
+        };
 
         // --- GEMINI INTEGRATION ---
         try {
@@ -49,7 +51,7 @@ export async function createQuestion(
                 if (commentText) {
                     const botUserId = await getOrCreateBotUser();
                     if (botUserId) {
-                        await createComment("question", question.$id, commentText, botUserId);
+                        await createComment("question", questionDoc.$id, commentText, botUserId);
                     }
                 }
             })();
@@ -58,7 +60,7 @@ export async function createQuestion(
         }
         // --------------------------
 
-        return { success: true, question };
+        return { success: true, question: questionDoc };
     } catch (error: any) {
         console.error("Error creating question:", error);
         return { success: false, error: error.message };
@@ -66,18 +68,45 @@ export async function createQuestion(
 }
 
 export async function getQuestions(
-    queries: string[] = []
+    params: { search?: string, tag?: string } = {}
 ) {
     try {
-        const response = await databases.listDocuments(
-            db,
-            questionCollection,
-            [
-                Query.orderDesc("$createdAt"),
-                ...queries
-            ]
-        );
-        return { success: true, documents: response.documents, total: response.total };
+        const { search, tag } = params;
+
+        const where: any = {};
+        if (search) {
+            where.OR = [
+                { title: { contains: search, mode: 'insensitive' } },
+                { content: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+        if (tag) {
+            where.tags = { has: tag };
+        }
+
+        const questions = await prisma.question.findMany({
+            where,
+            orderBy: {
+                createdAt: 'desc'
+            },
+            include: {
+                author: true
+            }
+        });
+
+        const total = await prisma.question.count({ where });
+
+        const documents = questions.map(q => ({
+            ...q,
+            $id: q.id,
+            $createdAt: q.createdAt.toISOString(),
+            $updatedAt: q.updatedAt.toISOString(),
+            $collectionId: "questions",
+            $databaseId: "main-stackflow",
+            author: { ...q.author, $id: q.author.id, $createdAt: q.author.createdAt.toISOString() }
+        }));
+
+        return { success: true, documents, total };
     } catch (error: any) {
         console.error("Error getting questions:", error);
         return { success: false, error: error.message };
@@ -86,12 +115,24 @@ export async function getQuestions(
 
 export async function getQuestion(questionId: string) {
     try {
-        const question = await databases.getDocument(
-            db,
-            questionCollection,
-            questionId
-        );
-        return { success: true, question };
+        const question = await prisma.question.findUnique({
+            where: { id: questionId },
+            include: { author: true }
+        });
+
+        if (!question) throw new Error("Question not found");
+
+        const questionDoc = {
+            ...question,
+            $id: question.id,
+            $createdAt: question.createdAt.toISOString(),
+            $updatedAt: question.updatedAt.toISOString(),
+            $collectionId: "questions",
+            $databaseId: "main-stackflow",
+            author: { ...question.author, $id: question.author.id, $createdAt: question.author.createdAt.toISOString() }
+        };
+
+        return { success: true, question: questionDoc };
     } catch (error: any) {
         console.error("Error getting question:", error);
         return { success: false, error: error.message };
@@ -100,15 +141,14 @@ export async function getQuestion(questionId: string) {
 
 export async function deleteQuestion(questionId: string, authorId: string) {
     try {
-        // Optional: Verify author before deleting (though RLS usually handles this)
-        // const q = await getQuestion(questionId);
-        // if (q.question.authorId !== authorId) throw new Error("Unauthorized");
+        // RLS / Owner check
+        const q = await prisma.question.findUnique({ where: { id: questionId } });
+        if (!q) throw new Error("Question not found");
+        if (q.authorId !== authorId) throw new Error("Unauthorized");
 
-        await databases.deleteDocument(
-            db,
-            questionCollection,
-            questionId
-        );
+        await prisma.question.delete({
+            where: { id: questionId }
+        });
         return { success: true };
     } catch (error: any) {
         console.error("Error deleting question:", error);

@@ -5,22 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { useAuthStore } from "@/store/Auth";
+import { useSession } from "next-auth/react";
 import { createQuestion } from "@/models/server/question.actions";
 import { useRouter } from "next/navigation";
 
 export default function AskQuestionPage() {
-    const { user } = useAuthStore();
+    const { data: session } = useSession();
+    const user = session?.user;
     const router = useRouter();
     const [isLoading, setIsLoading] = React.useState(false);
     const [error, setError] = React.useState("");
 
     React.useEffect(() => {
         // Protect route
-        if (!user) {
-            // This might flash if user state is hydrating, ideally handle loading state
-            // But for MVP, this is fine or wrap in a protected route component
-        }
+        // if (!user) ... logic
     }, [user]);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -45,7 +43,7 @@ export default function AskQuestionPage() {
             const { success, error: apiError, question } = await createQuestion(
                 title,
                 content,
-                user.$id,
+                user.id!,
                 tags,
                 attachment.size > 0 ? attachment : undefined
             );
@@ -63,7 +61,7 @@ export default function AskQuestionPage() {
     };
 
     return (
-        <div className="max-w-2xl mx-auto py-10">
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
             <h1 className="text-3xl font-bold mb-8">Ask a Question</h1>
             {error && <p className="text-red-500 mb-4">{error}</p>}
             <form onSubmit={handleSubmit} className="space-y-6">

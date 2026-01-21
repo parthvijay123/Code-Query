@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Models } from "appwrite";
 
-interface Question extends Models.Document {
+interface Question {
+    $id: string;
     title: string;
     content: string;
     authorId: string;
     tags: string[];
     attachmentId?: string;
+    $createdAt: string;
 }
 
 interface QuestionCardProps {

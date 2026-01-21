@@ -3,16 +3,14 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuthStore } from "@/store/Auth";
-import { account } from "@/models/client/config";
 import { useRouter } from "next/navigation";
-import { ID } from "appwrite";
 import Link from "next/link";
 import { Particles } from "@/components/magicui/particles";
 import { Label } from "@/components/ui/label";
+import { registerUser } from "@/models/server/auth.actions";
+import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
-    const { createAccount, login } = useAuthStore();
     const [isLoading, setIsLoading] = React.useState(false);
     const [error, setError] = React.useState("");
     const router = useRouter();
@@ -26,18 +24,36 @@ export default function RegisterPage() {
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
 
-        const { success, error: createError } = await createAccount(name, email, password);
+        try {
+            const result = await registerUser(null, formData);
+            if (result.success) {
+                // Auto login
+                const loginResult = await signIn("credentials", {
+                    email,
+                    password,
+                    redirect: false,
+                });
 
-        if (success) {
-            const { success: loginSuccess, error: loginError } = await login(email, password);
-            if (loginSuccess) {
-                router.push("/");
+                if (loginResult?.error) {
+                    setError("Account created but login failed. Please login manually.");
+                    router.push("/login");
+                } else {
+                    router.push("/");
+                    router.refresh();
+                }
             } else {
-                setError(loginError?.message || "Login failed after registration");
+                if (typeof result.error === 'object' && result.error !== null) {
+                    // Handle Zod errors (simplified)
+                    const messages = Object.values(result.error).flat().join(", ");
+                    setError(messages || "Registration failed");
+                } else {
+                    setError(result.message || "Registration failed");
+                }
                 setIsLoading(false);
             }
-        } else {
-            setError(createError?.message || "Registration failed");
+        } catch (err) {
+            console.error(err);
+            setError("Something went wrong");
             setIsLoading(false);
         }
     };

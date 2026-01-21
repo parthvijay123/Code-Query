@@ -1,8 +1,6 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
-import { databases } from "./config";
-import { db, voteCollection } from "../name";
+import { prisma } from "./config";
 
 export async function createVote(
     type: "question" | "answer",
@@ -12,42 +10,41 @@ export async function createVote(
 ) {
     try {
         // Check if user has already voted
-        const response = await databases.listDocuments(
-            db,
-            voteCollection,
-            [
-                Query.equal("type", type),
-                Query.equal("typeId", typeId),
-                Query.equal("votedById", authorId),
-            ]
-        );
+        const existingVote = await prisma.vote.findFirst({
+            where: {
+                type,
+                typeId,
+                votedById: authorId
+            }
+        });
 
-        if (response.documents.length > 0) {
-            const vote = response.documents[0];
+        if (existingVote) {
             // If same vote, remove it (toggle)
-            if (vote.voteStatus === voteStatus) {
-                await databases.deleteDocument(db, voteCollection, vote.$id);
+            if (existingVote.voteStatus === voteStatus) {
+                await prisma.vote.delete({
+                    where: { id: existingVote.id }
+                });
                 return { success: true, message: "Vote removed" };
             }
+
             // If different vote, update it
-            await databases.updateDocument(db, voteCollection, vote.$id, {
-                voteStatus,
+            await prisma.vote.update({
+                where: { id: existingVote.id },
+                data: { voteStatus }
             });
             return { success: true, message: "Vote updated" };
         }
 
         // Create new vote
-        await databases.createDocument(
-            db,
-            voteCollection,
-            ID.unique(),
-            {
+        await prisma.vote.create({
+            data: {
                 type,
                 typeId,
                 voteStatus,
-                votedById: authorId,
+                votedById: authorId
             }
-        );
+        });
+
         return { success: true, message: "Vote created" };
     } catch (error: any) {
         console.error("Error creating vote:", error);
@@ -57,21 +54,29 @@ export async function createVote(
 
 export async function getVotes(type: "question" | "answer", typeId: string) {
     try {
-        const response = await databases.listDocuments(
-            db,
-            voteCollection,
-            [
-                Query.equal("type", type),
-                Query.equal("typeId", typeId),
-            ]
-        );
+        const votes = await prisma.vote.findMany({
+            where: {
+                type,
+                typeId
+            }
+        });
 
-        const upvotes = response.documents.filter(v => v.voteStatus === "up").length;
-        const downvotes = response.documents.filter(v => v.voteStatus === "down").length;
+        const upvotes = votes.filter(v => v.voteStatus === "up").length;
+        const downvotes = votes.filter(v => v.voteStatus === "down").length;
 
-        return { success: true, upvotes, downvotes, total: upvotes - downvotes, documents: response.documents };
+        const documents = votes.map(v => ({
+            ...v,
+            $id: v.id,
+            $createdAt: v.createdAt.toISOString(),
+            $updatedAt: v.updatedAt.toISOString(),
+            $collectionId: "votes",
+            $databaseId: "main-stackflow"
+        }));
+
+        return { success: true, upvotes, downvotes, total: upvotes - downvotes, documents };
     } catch (error: any) {
         console.error("Error getting votes:", error);
         return { success: false, error: error.message };
     }
 }
+

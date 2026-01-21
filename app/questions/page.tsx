@@ -3,24 +3,14 @@ import { Button } from "@/components/ui/button";
 import { getQuestions } from "@/models/server/question.actions";
 import QuestionCard from "@/components/QuestionCard";
 
-import { Query } from "node-appwrite";
-
-export const dynamic = "force-dynamic";
-
 export default async function QuestionsPage({ searchParams }: { searchParams: Promise<{ search?: string, tag?: string }> }) {
     const { search, tag } = await searchParams;
-    const queries = [];
-    if (search) {
-        queries.push(Query.search("title", search));
-    }
-    if (tag) {
-        queries.push(Query.search("tags", tag));
-    }
 
-    const { documents: questions, error } = await getQuestions(queries);
+    const { documents: questions, error } = await getQuestions({ search, tag });
+
 
     return (
-        <div className="container mx-auto max-w-4xl py-10">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold">All Questions</h1>
                 <Link href="/questions/ask">

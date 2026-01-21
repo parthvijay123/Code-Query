@@ -3,14 +3,12 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuthStore } from "@/store/Auth";
-import { account } from "@/models/client/config";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Particles } from "@/components/magicui/particles";
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
-    const { login } = useAuthStore();
     const [isLoading, setIsLoading] = React.useState(false);
     const [error, setError] = React.useState("");
     const router = useRouter();
@@ -23,11 +21,22 @@ export default function LoginPage() {
         const email = formData.get("email") as string;
         const password = formData.get("password") as string;
 
-        const { success, error: loginError } = await login(email, password);
-        if (success) {
-            router.push("/");
-        } else {
-            setError(loginError?.message || "Login failed");
+        try {
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+
+            if (result?.error) {
+                setError("Invalid credentials");
+                setIsLoading(false);
+            } else {
+                router.push("/");
+                router.refresh();
+            }
+        } catch (error) {
+            setError("Something went wrong");
             setIsLoading(false);
         }
     };
@@ -61,6 +70,9 @@ export default function LoginPage() {
                         {isLoading ? "Logging in..." : "Log In"}
                     </Button>
                 </form>
+                <p className="mt-4 text-sm text-center text-muted-foreground">
+                    Don&apos;t have an account? <Link href="/register" className="text-primary hover:underline">Sign up</Link>
+                </p>
             </div>
         </div>
     );

@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { users } from "@/models/server/config"; // Import your server-side users client
-import { ID, Query } from "node-appwrite";
+import { prisma } from "@/models/server/config";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -27,23 +26,30 @@ export async function generateAIComment(questionTitle: string, questionContent: 
 export async function getOrCreateBotUser() {
     const BOT_EMAIL = "gemini@stackflow.com";
     const BOT_NAME = "Gemini Bot";
-    const BOT_PASSWORD = "gemini_secure_password_123"; // You might not need to ever sign in, but it's required.
+    // const BOT_PASSWORD = "gemini_secure_password_123"; // Not needed for Prisma User model if we just want a record
 
     try {
         // 1. Try to find the user
-        const response = await users.list([
-            Query.equal("email", BOT_EMAIL)
-        ]);
+        const existingUser = await prisma.user.findUnique({
+            where: { email: BOT_EMAIL }
+        });
 
-        if (response.total > 0) {
-            return response.users[0].$id;
+        if (existingUser) {
+            return existingUser.id;
         }
 
         // 2. Create if not exists
-        const user = await users.create(ID.unique(), BOT_EMAIL, undefined, BOT_PASSWORD, BOT_NAME);
-        return user.$id;
+        const user = await prisma.user.create({
+            data: {
+                name: BOT_NAME,
+                email: BOT_EMAIL,
+                // password: ... // If using credentials provider, you might want to hash a password, but for a bot user referenced by ID, it might not be needed depending on auth setup.
+            }
+        });
+        return user.id;
     } catch (error) {
         console.error("Error managing Bot user:", error);
         return null;
     }
 }
+

@@ -1,8 +1,6 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
-import { databases } from "./config";
-import { db, commentCollection } from "../name";
+import { prisma } from "./config";
 
 export async function createComment(
     type: "question" | "answer",
@@ -11,18 +9,25 @@ export async function createComment(
     authorId: string
 ) {
     try {
-        const comment = await databases.createDocument(
-            db,
-            commentCollection,
-            ID.unique(),
-            {
+        const comment = await prisma.comment.create({
+            data: {
                 type,
                 typeId,
                 content,
-                authorId,
+                authorId
             }
-        );
-        return { success: true, comment };
+        });
+
+        const commentDoc = {
+            ...comment,
+            $id: comment.id,
+            $createdAt: comment.createdAt.toISOString(),
+            $updatedAt: comment.updatedAt.toISOString(),
+            $collectionId: "comments",
+            $databaseId: "main-stackflow"
+        };
+
+        return { success: true, comment: commentDoc };
     } catch (error: any) {
         console.error("Error creating comment:", error);
         return { success: false, error: error.message };
@@ -31,18 +36,29 @@ export async function createComment(
 
 export async function getComments(type: "question" | "answer", typeId: string) {
     try {
-        const response = await databases.listDocuments(
-            db,
-            commentCollection,
-            [
-                Query.equal("type", type),
-                Query.equal("typeId", typeId),
-                Query.orderDesc("$createdAt"),
-            ]
-        );
-        return { success: true, documents: response.documents };
+        const comments = await prisma.comment.findMany({
+            where: {
+                type,
+                typeId
+            },
+            orderBy: { createdAt: 'desc' },
+            include: { author: true }
+        });
+
+        const documents = comments.map(c => ({
+            ...c,
+            $id: c.id,
+            $createdAt: c.createdAt.toISOString(),
+            $updatedAt: c.updatedAt.toISOString(),
+            $collectionId: "comments",
+            $databaseId: "main-stackflow",
+            author: { ...c.author, $id: c.author.id, $createdAt: c.author.createdAt.toISOString() }
+        }));
+
+        return { success: true, documents, total: comments.length };
     } catch (error: any) {
         console.error("Error getting comments:", error);
         return { success: false, error: error.message };
     }
 }
+
