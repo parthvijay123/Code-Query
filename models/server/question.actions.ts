@@ -44,7 +44,7 @@ export async function createQuestion(
         try {
             // We do this asynchronously without awaiting to not block the UI response
             (async () => {
-                const { generateAIComment, getOrCreateBotUser } = await import("@/lib/gemini");
+                const { generateAIComment, getOrCreateBotUser } = await import("@/lib/groq");
                 const { createComment } = await import("@/models/server/comment.actions");
 
                 const commentText = await generateAIComment(title, content);

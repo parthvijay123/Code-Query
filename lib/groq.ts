@@ -1,13 +1,14 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { prisma } from "@/models/server/config";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY || "",
+});
 
 export async function generateAIComment(questionTitle: string, questionContent: string) {
     try {
         const prompt = `
-      You are a helpful developer assistant on Codeforces Duel (a competitive coding platform).
+      You are a helpful developer assistant on Code-Query (a developer Q&A platform).
       A user just asked: "${questionTitle}"
       Context: "${questionContent}"
       
@@ -15,18 +16,26 @@ export async function generateAIComment(questionTitle: string, questionContent: 
       If you know the answer, give a brief hint, but keep it concise (under 200 characters).
     `;
 
-        const result = await model.generateContent(prompt);
-        return result.response.text();
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "user",
+                    content: prompt,
+                },
+            ],
+            model: "llama-3.3-70b-versatile",
+        });
+
+        return chatCompletion.choices[0]?.message?.content || null;
     } catch (error) {
-        console.error("Gemini API Error:", error);
+        console.error("Groq API Error:", error);
         return null;
     }
 }
 
 export async function getOrCreateBotUser() {
-    const BOT_EMAIL = "gemini@stackflow.com";
-    const BOT_NAME = "Gemini Bot";
-    // const BOT_PASSWORD = "gemini_secure_password_123"; // Not needed for Prisma User model if we just want a record
+    const BOT_EMAIL = "groq-bot@codequery.dev";
+    const BOT_NAME = "Groq AI Bot";
 
     try {
         // 1. Try to find the user
@@ -43,7 +52,6 @@ export async function getOrCreateBotUser() {
             data: {
                 name: BOT_NAME,
                 email: BOT_EMAIL,
-                // password: ... // If using credentials provider, you might want to hash a password, but for a bot user referenced by ID, it might not be needed depending on auth setup.
             }
         });
         return user.id;
@@ -52,4 +60,3 @@ export async function getOrCreateBotUser() {
         return null;
     }
 }
-

@@ -56,7 +56,7 @@ export default function Home() {
           </div>
           <div className="p-6 border rounded-xl bg-card hover:shadow-lg transition-shadow">
             <h3 className="text-xl font-semibold mb-2">AI Powered</h3>
-            <p className="text-muted-foreground">Receive instant, intelligent answers from our Gemini integration.</p>
+            <p className="text-muted-foreground">Receive instant, intelligent answers from our Groq AI integration.</p>
           </div>
         </div>
       </section>
